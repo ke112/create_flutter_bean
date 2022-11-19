@@ -15,7 +15,7 @@ class UserBean {
 
   UserBean.fromJson(Map<String, dynamic> json) {
     code = json["code"];
-    data = json["data"];
+    data = json["data"] == null ? null : UserBeanData.fromJson(json[data]);
     msg = json["msg"];
     success = json["success"];
     traceId = json["traceId"];
@@ -24,7 +24,9 @@ class UserBean {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> _data = <String, dynamic>{};
     _data["code"] = code;
-    _data["data"] = data;
+    if (data != null) {
+      _data["data"] = data?.toJson();
+    }
     _data["msg"] = msg;
     _data["success"] = success;
     _data["traceId"] = traceId;
