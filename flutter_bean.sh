@@ -13,7 +13,7 @@
 #数组的
 # json='{"msg":"成功","traceId":"799da77e9ae174fc","code":200,"data":[{"imageAndTxtSlideToMh":null,"lineTitle":null,"commodityFalls":null,"slideshowToMh":null,"commoditySlide":null},{"imageAndTxtSlideToMh":null,"lineTitle":null,"commodityFalls":null,"slideshowToMh":null,"commoditySlide":null}],"success":true}'
 #字典的
-json='{"msg":"成功","traceId":"799da77e9ae174fc","code":200,"data":{"imageAndTxtSlideToMh":null,"lineTitle":null,"commodityFalls":null,"slideshowToMh":null,"commoditySlide":null},"success":true}'
+json1='{"msg":"成功","traceId":"799da77e9ae174fc","code":200,"data":{"imageAndTxtSlideToMh":null,"lineTitle":null,"commodityFalls":null,"slideshowToMh":null,"commoditySlide":null},"success":true}'
 # echo $document
 # echo $beanName
 # echo $json
@@ -29,20 +29,25 @@ json='{"msg":"成功","traceId":"799da77e9ae174fc","code":200,"data":{"imageAndT
 # echo $json | jq -r .msg
 
 parseJson() {
-  # if [[ -n $1 ]]; then
-  #   echo 'json有值'
-  #   json=$1
-  # else
-  #   echo 'json为空,返回了'
-  #   return
-  # fi
-  # echo
+  echo '第一个参数: '$1
+  echo '第二个参数: '$2
+  echo '第三个参数: '$3
+  if [[ $1 == 1 ]]; then
+    echo '是json一级解析'
+    json=$3
+  else
+    echo 'json下的map遍历'
+  fi
+  className=$2
+
+  echo
   echo '要解析的json: '$json
   one_keys=$(echo $json | jq -r keys[])
   echo
   echo '一级的keys: '$one_keys
   echo
 
+  echo "class $className {" >>bean.dart
   for item in $one_keys; do
     one_value=$(echo $json | jq -r .$item)
     if [[ $one_value =~ ^[0-9]+$ ]]; then
@@ -59,8 +64,12 @@ parseJson() {
       echo "  dynamic $item;" >>bean.dart
     elif [[ $one_value =~ ^\{.* ]]; then
       echo "是字典-- $one_value"
-      json=$one_value
-      parseJson $json #递归解析
+
+      item2=$(echo ${item:0:1} | tr '[a-z]' '[A-Z]')${item:1}
+      subClassName=$className$item2
+      echo "  $subClassName? $item;" >>bean.dart
+
+      #递归解析在后边
 
     elif [[ $one_value =~ ^\[.* ]]; then
       echo "是数组-- $one_value"
@@ -69,20 +78,24 @@ parseJson() {
         two_value=$(echo $json | jq -r .$item[$i])
         echo $i
         if [[ $two_value != null ]]; then #排除返回的数组没有这么多
-          json=$two_value
-          parseJson $json #递归解析
+          echo
+          # json=$two_value
+          # parseJson $json #递归解析
         fi
       done
 
-    else
+    elif [[ $one_value =~ ^[a-zA-Z0-9] ]]; then
       echo $one_value"是字符串"
+      echo "  String? $item;" >>bean.dart
+    else
+      echo $one_value"是未知"
       echo "  String? $item;" >>bean.dart
     fi
   done
 
   # 构造方法
   echo "" >>bean.dart
-  echo "  Example({" >>bean.dart
+  echo "  $className({" >>bean.dart
   for item in $one_keys; do
     echo "    this.$item," >>bean.dart
   done
@@ -90,7 +103,7 @@ parseJson() {
 
   # fromJson
   echo "" >>bean.dart
-  echo "  Example.fromJson(Map<String, dynamic> json) {" >>bean.dart
+  echo "  $className.fromJson(Map<String, dynamic> json) {" >>bean.dart
   for item in $one_keys; do
     echo "    $item = json[\"$item\"];" >>bean.dart
     # msg = json["msg"];
@@ -106,25 +119,20 @@ parseJson() {
   done
   echo "    return _data;" >>bean.dart
   echo "  }" >>bean.dart
+  echo "}" >>bean.dart
 
-}
-
-parseJson2() {
-  echo '二级'
-  echo '-------------------------------'
-  echo $bbb
-  echo '-------------------------------'
-  one_keys=$(echo $bbb | jq -r keys[])
-  for item2 in $one_keys; do
-    echo '二级key: '$item2
-    two_value=$(echo $bbb | jq -r .$item.$item2)
-    echo $two_value
+  echo
+  for item in $one_keys; do
+    one_value=$(echo $json | jq -r .$item)
+    if [[ $one_value =~ ^\{.* ]]; then
+      json=$one_value #递归解析
+      parseJson 0 $subClassName $one_value
+    fi
   done
 }
 
 rm -rf bean.dart
 touch bean.dart
-echo "class Example {" >>bean.dart
-parseJson $json
-echo "}" >>bean.dart
+
+parseJson 1 UserBean $json1
 open bean.dart
